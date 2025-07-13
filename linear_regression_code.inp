@@ -1,0 +1,244 @@
+# Skrypt projekt ekonometria
+# Izabela Guła 414360
+
+#############################################
+#Helwig
+list xlist = bezrobocie mieszkania urbanizacja rozwody gestosczaludnienia wypadki
+series d_Y = przedsiebiorstwa
+ols d_Y const xlist
+
+#współczynnik determinacji zwykły
+scalar rsq_zwykly = $rsq
+
+# współczynnik determinacji skorygowany
+scalar k = nelem(xlist) #liczba zmiennych bez stałej
+scalar n = nobs(d_Y)    #liczba obserwacji
+scalar rsq_skorygowany = $rsq - (k/(n-k-1))*(1-$rsq)
+
+function matrix dodawanie_1_binarne(scalar n, matrix pozycja)
+    kontrolna=1
+    loop j=1..n --quiet
+        if kontrolna==1
+            if pozycja[j,1]==0
+                pozycja[j,1]=1
+                kontrolna=0
+            else
+                pozycja[j,1]=0
+            endif
+        endif
+    endloop
+    return pozycja
+end function
+
+function scalar helwig (series y, list robocza)
+    H=0
+    loop foreach j robocza --quiet
+        h=(corr(y,robocza.$j))^2
+        s=0
+        loop foreach k robocza --quiet
+            c=abs(corr(robocza.$j,robocza.$k))
+            s=s+c
+        endloop
+        h=h/s
+        H=H+h
+    endloop
+    return H
+end function
+
+n=nelem(xlist)
+pozycja=zeros(n,1)
+kombinacji=2^n-1
+H_max=helwig(d_Y,xlist)
+H_rob=-1
+loop j=1..kombinacji --quiet
+    pozycja=dodawanie_1_binarne(n,pozycja)
+    robocza=xlist
+    loop foreach k xlist --quiet
+        if pozycja[k,1]==1
+            robocza=robocza-xlist.$k
+        endif
+    endloop
+    H_rob=helwig(d_Y,robocza)
+    H_rob
+    robocza
+    if H_rob>H_max
+        H_max=H_rob
+        najlepszalista=robocza
+    endif
+endloop
+
+H_max
+najlepszalista
+
+#####################################################
+#Helwig 2
+
+list xlist = 8 9 10 11 12 14
+series d_Y = l_przedsiebiorstwa
+ols d_Y const xlist
+
+#współczynnik determinacji zwykły
+scalar rsq_zwykly = $rsq
+
+# współczynnik determinacji skorygowany
+scalar k = nelem(xlist) #liczba zmiennych bez stałej
+scalar n = nobs(d_Y)    #liczba obserwacji
+scalar rsq_skorygowany = $rsq - (k/(n-k-1))*(1-$rsq)
+
+function matrix dodawanie_1_binarne(scalar n, matrix pozycja)
+    kontrolna=1
+    loop j=1..n --quiet
+        if kontrolna==1
+            if pozycja[j,1]==0
+                pozycja[j,1]=1
+                kontrolna=0
+            else
+                pozycja[j,1]=0
+            endif
+        endif
+    endloop
+    return pozycja
+end function
+function scalar helwig (series y, list robocza)
+    H=0
+    loop foreach j robocza --quiet
+        h=(corr(y,robocza.$j))^2
+        s=0
+        loop foreach k robocza --quiet
+            c=abs(corr(robocza.$j,robocza.$k))
+            s=s+c
+        endloop
+        h=h/s
+        H=H+h
+    endloop
+    return H
+end function
+n=nelem(xlist)
+pozycja=zeros(n,1)
+kombinacji=2^n-1
+H_max=helwig(d_Y,xlist)
+H_rob=-1
+loop j=1..kombinacji --quiet
+    pozycja=dodawanie_1_binarne(n,pozycja)
+    robocza=xlist
+    loop foreach k xlist --quiet
+        if pozycja[k,1]==1
+            robocza=robocza-xlist.$k
+        endif
+    endloop
+    H_rob=helwig(d_Y,robocza)
+    H_rob
+    robocza
+    if H_rob>H_max
+        H_max=H_rob
+        najlepszalista=robocza
+    endif
+endloop
+
+H_max
+najlepszalista
+
+############################
+#Determinacja
+ols 13 0 9 10 14
+list xlist = l_mieszkania l_urbanizacja l_wypadki
+series d_Y = l_przedsiebiorstwa
+scalar rsq_zwykly = $rsq
+scalar df = $df
+scalar k = nelem(xlist) #liczba zmiennych bez stałej
+scalar n = nobs(d_Y)    #liczba obserwacji
+scalar F_obl = (rsq_zwykly/(1-rsq_zwykly))*((n-(k+1))/k)
+pvalue F 3 df F_obl
+
+#############################
+#Efekt katalizy 
+series Y = l_przedsiebiorstwa
+list xlist = 9 10 14
+
+#model MNK
+ols 13 0 9 10 14
+
+#współczynnik determinacji zwykły:
+scalar rsq_zwykly = $rsq
+
+function scalar helwig (series y, list robocza)
+    H=0
+    loop foreach j robocza --quiet
+        h=(corr(y,robocza.$j))^2
+        s=0
+        loop foreach k robocza --quiet
+            c=abs(corr(robocza.$j,robocza.$k))
+            s=s+c
+        endloop
+        h=h/s
+        H=H+h
+    endloop
+    return H
+end function
+
+scalar ni=$rsq-helwig(Y,xlist)
+
+###############################
+#Istotnosc zmiennych
+#test dwustronny (H0: alpha1=0, H1: alpha1!=0)
+scalar t_obl = ($coeff(l_mieszkania)-0)/$stderr(l_mieszkania)
+scalar wartosc_krytyczna = critical(t,$df,0.025)
+
+#test dwustronny (H0: alpha1=0, H1: alpha1!=0)
+scalar t_obl1 = ($coeff(l_urbanizacja)-0)/$stderr(l_urbanizacja)
+
+#test dwustronny (H0: alpha1=0, H1: alpha1!=0)
+scalar t_obl2 = ($coeff(l_wypadki)-0)/$stderr(l_wypadki)
+
+printf "T oblicozne dla parametru przy zmiennej l_mieszkania:  %g\n", t_obl
+printf "T oblicozne dla parametru przy zmiennej l_urbanizacja:  %g\n", t_obl1
+printf "T oblicozne dla parametru przy zmiennej l_wypadki:  %g\n", t_obl2
+printf "Wartość krytyczna:  %g\n", wartosc_krytyczna
+
+######################################
+#Test liczby serii dla reszt modelu
+ols 13 0 9 10 14
+series e =$uhat
+runs e --equal
+
+
+######################################
+#Test RESET
+ols 13 0 9 10 14
+reset
+
+######################################
+#Test Chowa
+ols 13 0 9 10 14
+chow 156
+
+######################################
+#Wspolliniowosc
+ols 13 0 9 10 14
+vif
+
+#######################################
+# Predykcja z przedziałem ufności
+
+#Prognoza punktowa
+ols 13 0 9 10 14
+matrix x_tau={1, mean(l_mieszkania), mean(l_urbanizacja), mean(l_wypadki)}
+matrix a = $coeff
+scalar prognoza_punktowa = x_tau*a
+
+#wariancja prognozy
+scalar wariancja_prognozy= x_tau*$vcv*x_tau'+$ess/$df
+
+#blad prognozy
+scalar blad_prognozy = sqrt(wariancja_prognozy)
+
+#95% przedzial
+scalar dolna = prognoza_punktowa-critical(t,$df,0.025)*blad_prognozy
+scalar gorna = prognoza_punktowa+critical(t,$df,0.025)*blad_prognozy
+
+printf "Prognoza punktowa dla modelu wynosi %g\n", prognoza_punktowa
+printf "Dla 95%% przedziału ufności wynoszącego (%g, %g)", dolna, gorna
+
+
+
+
